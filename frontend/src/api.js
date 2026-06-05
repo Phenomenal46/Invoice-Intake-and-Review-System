@@ -4,7 +4,9 @@ export async function submitDocument({ text, file }) {
   const form = new FormData();
   if (text) form.append("text", text);
   if (file) form.append("file", file);
-
+  if(!text && !file) {
+    throw new Error("Please provide text or a file");
+  }
   const response = await fetch(`${API_URL}/documents`, {
     method: "POST",
     body: form,

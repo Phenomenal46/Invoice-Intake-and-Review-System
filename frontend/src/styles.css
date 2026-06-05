@@ -63,7 +63,7 @@ button {
   border: none;
   padding: 12px 18px;
   border-radius: 12px;
-  background: #0a5bff;
+  background: #4580f8;
   color: #ffffff;
   font-weight: 600;
   cursor: pointer;
@@ -100,7 +100,7 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  background: #f4f6ff;
+  background: #809ad1e7;
   border: 1px solid transparent;
 }
 
@@ -118,7 +118,7 @@ button:disabled {
   gap: 4px;
   padding: 12px;
   border-radius: 12px;
-  background: #f7fbff;
+  background: #c7d1dc;
 }
 
 pre {
