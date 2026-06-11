@@ -1,4 +1,4 @@
-# AI Document Workflow Mini-System
+# AI powered Invoice Intake and Review System
 
 ## What this project does
 A user can paste text or upload a file. The system extracts key fields, validates them, calls an LLM for summary/classification, assigns a workflow status, and stores history plus audit logs.
