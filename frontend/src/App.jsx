@@ -56,7 +56,7 @@ function App() {
   return (
     <div className="page">
       <header className="header">
-        <h1>AI Document Workflow</h1>
+        <h1>Invoice Intake and Review System</h1>
         <p>Upload a document or paste text to extract fields and get a workflow status.</p>
       </header>
 
