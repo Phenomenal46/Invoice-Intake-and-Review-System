@@ -40,5 +40,21 @@ A user can paste text or upload a file. The system extracts key fields, validate
    ```
 
 ## Notes
-- If `LLM_API_KEY` is empty, the backend will return a safe fallback summary.
+- If `GEMINI_API_KEY` is empty, the backend will return a safe fallback summary.
 - MongoDB must be running locally or the URI should point to a remote cluster.
+
+## 🚨 About the "429 Error" (Quota Exceeded)
+
+The app uses **Google Gemini API** which has **FREE TIER QUOTAS**:
+- You can make about **15 requests per minute**
+- You get about **1 million tokens per day** (tokens = words)
+
+**If you get a 429 Error, it means:**
+- You've exceeded your free tier quota
+- OR You sent too many requests too quickly
+
+**How to fix it:**
+1. **Wait 60 seconds** and try again
+2. **Check your quota**: Visit https://ai.dev/rate-limit
+3. **Upgrade to Paid Plan**: Get unlimited access
+4. **Don't worry**: Even if the API fails, our app returns a SAFE FALLBACK SUMMARY, so users still see something!

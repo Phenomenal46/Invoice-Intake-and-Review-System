@@ -41,6 +41,22 @@ def call_llm(text: str) -> LLMOutput:
     """
     Calls the Google Gemini API to analyze the document text.
     It asks the AI to return data that matches our LLMOutput schema.
+    
+    ⚠️  IMPORTANT: Google Gemini Free Tier Quotas
+    =====================================
+    Google limits FREE tier users to prevent abuse:
+    - Requests Per Minute (RPM): About 15 requests per minute
+    - Tokens Per Minute (TPM): About 1 million tokens per minute
+    - Requests Per Day: Limited total per day
+    
+    When you hit these limits, you get a "429 RESOURCE_EXHAUSTED" error.
+    This means: "Slow down! You're sending requests too fast!"
+    
+    ✅ Solution:
+    1. Wait 60 seconds and try again
+    2. Check your quota: https://ai.dev/rate-limit
+    3. Upgrade to a PAID plan for higher limits
+    4. Our app has a FALLBACK function that returns safe data when Gemini is unavailable
     """
     # Check if the API key is provided in the configuration (.env file)
     # The 'settings' object automatically loads variables from our .env file.
@@ -89,6 +105,19 @@ def call_llm(text: str) -> LLMOutput:
         
     except Exception as e:
         # Catch any errors (like network failures or bad data) so the app doesn't crash.
-        print(f"Error calling Gemini API: {e}")
-        # We call the fallback function to return safe default values.
+        error_str = str(e)
+        
+        # Check if the error is a 429 (quota exceeded / rate limit)
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            # This means: "You sent too many requests to Google!" or "Your free tier quota is used up!"
+            # On the free tier, Google Gemini has limits:
+            # - Only a few requests per minute
+            # - Only a limited number of tokens (words) per day
+            # Solution: Wait 60 seconds, then try again. Or upgrade to a paid plan.
+            print(f"API Quota Exceeded (429 Error): You've hit Google's free tier limits.")
+            print(f"Please wait 60 seconds before trying again, or check your API quota at https://ai.dev/rate-limit")
+        else:
+            print(f"Error calling Gemini API: {e}")
+        
+        # We call the fallback function to return safe default values so users still see something.
         return _fallback_llm_output(text)
