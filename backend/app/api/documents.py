@@ -1,3 +1,6 @@
+import os
+import shutil
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -11,19 +14,44 @@ from app.utils.serialization import parse_object_id, serialize_document
 router = APIRouter()
 
 
-def _load_text(text: str | None, file: UploadFile | None) -> tuple[str, str, dict]:
+def handle_upload(text: str | None, file: UploadFile | None) -> tuple[str, str, dict]:
+    metadata = {"filename": None, "file_url": None}
+    raw_text = text or ""
+    source = "unknown"
+
     if text:
-        return text, "text", {"filename": None}
+        source = "text"
 
     if file:
-        raw_bytes = file.file.read()
-        return (
-            raw_bytes.decode("utf-8", errors="ignore"),
-            "file",
-            {"filename": file.filename},
-        )
+        source = "file"
+        metadata["filename"] = file.filename
+        
+        # 1. Extract the file extension (e.g., '.pdf' or '.png')
+        file_extension = os.path.splitext(file.filename)[1]
+        
+        # 2. Create a unique file name using UUID
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = os.path.join("uploads", unique_filename)
+        
+        # 3. Save the actual file to our "uploads" folder
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # 4. Save the URL so the frontend can find it later
+        metadata["file_url"] = f"http://localhost:8000/uploads/{unique_filename}"
 
-    raise HTTPException(status_code=400, detail="Provide text or a file.")
+        # Temporary fix: Let's not crash if it's an image. 
+        # We will replace this with AI Vision in Phase 3!
+        file.file.seek(0) # Reset file pointer
+        try:
+            raw_text = file.file.read().decode("utf-8", errors="ignore")
+        except Exception:
+            raw_text = "Image or PDF uploaded. AI Vision will process this soon."
+
+    if not text and not file:
+        raise HTTPException(status_code=400, detail="Provide text or a file.")
+
+    return raw_text, source, metadata
 
 
 def _parse_document_id(raw_id: str):
@@ -38,7 +66,7 @@ def create_document(
     text: str | None = Form(None),
     file: UploadFile | None = File(None),
 ) -> dict:
-    raw_text, source, metadata = _load_text(text, file)
+    raw_text, source, metadata = handle_upload(text, file)
     extracted = extraction.extract_fields(raw_text)
     validation_result = validation.validate_fields(extracted)
     llm_output = llm.call_llm(raw_text)
