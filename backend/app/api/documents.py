@@ -8,7 +8,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from app.db.mongo import get_collections
 from app.schemas.audit import AuditEvent
 from app.schemas.document import DocumentResponse
-from app.services import audit, extraction, llm, validation, workflow
+from app.services import audit, llm, validation, workflow
 from app.utils.serialization import parse_object_id, serialize_document
 
 router = APIRouter()
@@ -32,6 +32,7 @@ def handle_upload(text: str | None, file: UploadFile | None) -> tuple[str, str, 
         # 2. Create a unique file name using UUID
         unique_filename = f"{uuid.uuid4()}{file_extension}"
         file_path = os.path.join("uploads", unique_filename)
+        metadata["local_path"] = file_path
         
         # 3. Save the actual file to our "uploads" folder
         with open(file_path, "wb") as buffer:
@@ -67,9 +68,17 @@ def create_document(
     file: UploadFile | None = File(None),
 ) -> dict:
     raw_text, source, metadata = handle_upload(text, file)
-    extracted = extraction.extract_fields(raw_text)
+    
+    local_path = metadata.get("local_path")
+    
+    # 1. Ask the AI to look at the file and text
+    llm_output = llm.call_llm(raw_text, file_path=local_path)
+    
+    # 2. Grab the extracted data directly from the AI's brain!
+    extracted = llm_output.extracted_data 
+    
+    # 3. Validate it using our existing rules
     validation_result = validation.validate_fields(extracted)
-    llm_output = llm.call_llm(raw_text)
     status = workflow.decide_status(validation_result, llm_output)
 
     documents, audit_logs = get_collections()
@@ -89,13 +98,7 @@ def create_document(
     document_id = str(result.inserted_id)
 
     audit_logs.insert_one(audit.build_audit_event(document_id, "document_created", "Document ingested."))
-    audit_logs.insert_one(
-        audit.build_audit_event(
-            document_id,
-            "workflow_assigned",
-            f"Status: {status.value}",
-        )
-    )
+    audit_logs.insert_one(audit.build_audit_event(document_id, "workflow_assigned", f"Status: {status.value}"))
 
     doc["_id"] = result.inserted_id
     return {"document": serialize_document(doc)}

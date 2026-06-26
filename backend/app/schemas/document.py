@@ -31,6 +31,8 @@ class ValidationResult(BaseModel):
 
 
 class LLMOutput(BaseModel):
+    # NEW: We are telling the AI to put the extracted data directly inside its response!
+    extracted_data: ExtractedFields
     summary: str
     classification: str
     confidence: float
