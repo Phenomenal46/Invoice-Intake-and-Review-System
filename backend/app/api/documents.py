@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from app.db.mongo import get_collections
 from app.schemas.audit import AuditEvent
@@ -131,3 +132,53 @@ def get_audit(document_id: str) -> dict:
         entry["id"] = str(entry.pop("_id"))
         items.append(AuditEvent(**entry).model_dump())
     return {"items": items}
+
+
+
+
+# 1. Define what data we expect from the frontend when a user clicks "Approve"
+class DocumentUpdate(BaseModel):
+    vendor: str
+    invoice_number: str
+    invoice_date: str
+    total_amount: float | str | None = None
+
+# 2. Create a PATCH route (PATCH is used for updating existing data)
+@router.patch("/documents/{document_id}", response_model=DocumentResponse)
+def update_document(document_id: str, update_data: DocumentUpdate) -> dict:
+    documents, audit_logs = get_collections()
+    object_id = _parse_document_id(document_id)
+    
+    # Clean up the total_amount (ensure it is a float if possible)
+    try:
+        clean_amount = float(update_data.total_amount) if update_data.total_amount else 0.0
+    except ValueError:
+        clean_amount = 0.0
+
+    # 3. Tell MongoDB to find the document and update its specific fields
+    update_result = documents.update_one(
+        {"_id": object_id},
+        {"$set": {
+            "extracted.vendor": update_data.vendor,
+            "extracted.invoice_number": update_data.invoice_number,
+            "extracted.invoice_date": update_data.invoice_date,
+            "extracted.total_amount": clean_amount,
+            "workflow_status": "Approved" # Change status instantly!
+        }}
+    )
+
+    if update_result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    # 4. Add an Audit Log so the company knows WHO changed the data and WHEN
+    audit_logs.insert_one(
+        audit.build_audit_event(
+            document_id,
+            "document_approved",
+            "Document manually reviewed and approved by user."
+        )
+    )
+
+    # Return the newly updated document
+    updated_doc = documents.find_one({"_id": object_id})
+    return {"document": serialize_document(updated_doc)}

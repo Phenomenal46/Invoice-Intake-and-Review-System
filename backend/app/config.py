@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Manually load the .env file from the correct location
 env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+
 load_dotenv(env_path)
 
 class Settings(BaseSettings):

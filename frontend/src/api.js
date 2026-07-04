@@ -35,3 +35,30 @@ export async function fetchAudit(documentId) {
   }
   return response.json();
 }
+
+
+// Fetch a single document by its ID
+export async function fetchDocument(documentId) {
+  const response = await fetch(`${API_URL}/documents/${documentId}`);
+  if (!response.ok) {
+    throw new Error("Failed to load document");
+  }
+  return response.json();
+}
+
+
+// Send the corrected data to the backend to be approved
+export async function approveDocument(documentId, updatedData) {
+  const response = await fetch(`${API_URL}/documents/${documentId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(updatedData),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to approve document");
+  }
+  return response.json();
+}

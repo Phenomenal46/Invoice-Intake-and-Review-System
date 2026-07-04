@@ -7,7 +7,7 @@ from app.schemas.document import LLMOutput, ExtractedFields
 
 # The Prompt: We explicitly tell the AI to act as a visual data extractor.
 SYSTEM_PROMPT = (
-    "You are a professional document analyst. Look at the provided document (image/text). "
+    "You are a professional document analyst. Look at the provided document (pdf/image/text or any valid format). "
     "1. Extract the vendor name, invoice number, date, and total amount into 'extracted_data'. "
     "2. Provide a short summary, a classification (e.g., 'Invoice'), and list any risks."
 )
@@ -32,9 +32,49 @@ def call_llm(text: str, file_path: str | None = None) -> LLMOutput:
     try:
         client = genai.Client(api_key=settings.gemini_api_key)
         
-        schema = LLMOutput.model_json_schema()
-        if "title" in schema:
-            del schema["title"]
+        schema = {
+    "type": "OBJECT",
+    "properties": {
+        "extracted_data": {
+            "type": "OBJECT",
+            "properties": {
+                "vendor": {
+                    "type": "STRING"
+                },
+                "invoice_number": {
+                    "type": "STRING"
+                },
+                "invoice_date": {
+                    "type": "STRING"
+                },
+                "total_amount": {
+                    "type": "NUMBER"
+                }
+            }
+        },
+        "summary": {
+            "type": "STRING"
+        },
+        "classification": {
+            "type": "STRING"
+        },
+        "confidence": {
+            "type": "NUMBER"
+        },
+        "key_points": {
+            "type": "ARRAY",
+            "items": {
+                "type": "STRING"
+            }
+        },
+        "risks": {
+            "type": "ARRAY",
+            "items": {
+                "type": "STRING"
+            }
+        }
+    }
+        }
 
         config = types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
