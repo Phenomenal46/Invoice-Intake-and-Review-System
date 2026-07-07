@@ -15,7 +15,7 @@ dist/
 
 
 # Ignore all files inside the uploads folder
-uploads/*
+backend/uploads/*
 
 # BUT do not ignore the .gitkeep file (this forces Git to track the empty folder)
-!uploads/.gitkeep
+!backend/uploads/.gitkeep

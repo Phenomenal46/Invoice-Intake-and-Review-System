@@ -1,3 +1,4 @@
+from email.mime import text
 import os
 import shutil
 import uuid
@@ -25,7 +26,10 @@ def handle_upload(text: str | None, file: UploadFile | None) -> tuple[str, str, 
 
     if file:
         source = "file"
+        # Original filename
         metadata["filename"] = file.filename
+        # MIME type
+        metadata["mime_type"] = file.content_type
         
         # 1. Extract the file extension (e.g., '.pdf' or '.png')
         file_extension = os.path.splitext(file.filename)[1]
@@ -42,18 +46,20 @@ def handle_upload(text: str | None, file: UploadFile | None) -> tuple[str, str, 
         # 4. Save the URL so the frontend can find it later
         metadata["file_url"] = f"http://localhost:8000/uploads/{unique_filename}"
 
-        # Temporary fix: Let's not crash if it's an image. 
-        # We will replace this with AI Vision in Phase 3!
-        file.file.seek(0) # Reset file pointer
-        try:
-            raw_text = file.file.read().decode("utf-8", errors="ignore")
-        except Exception:
-            raw_text = "Image or PDF uploaded. AI Vision will process this soon."
+        # ---------------------------------------------------------
+        # IMPORTANT
+        #
+        # Do NOT try to manually convert PDFs/images/docx into text.
+        # Gemini understands these files directly.
+        # We only keep raw text if the user actually typed something.
+        # ---------------------------------------------------------
 
-    if not text and not file:
-        raise HTTPException(status_code=400, detail="Provide text or a file.")
+        raw_text = text or ""
+        
+        if not text and not file:
+            raise HTTPException(status_code=400, detail="Provide text or a file.")
 
-    return raw_text, source, metadata
+        return raw_text, source, metadata
 
 
 def _parse_document_id(raw_id: str):

@@ -85,23 +85,51 @@ def call_llm(text: str, file_path: str | None = None) -> LLMOutput:
             response_schema=schema
         )
 
-        contents = []
-        
-        # IF we have a file, upload it to Gemini so it can "see" it
-        if file_path:
-            gemini_file = client.files.upload(file=file_path)
-            contents.append(gemini_file)
-            
-        # IF we have text, add that too
-        if text:
-            contents.append(text)
+        # ---------------------------------------------------------
+        # Build the list of inputs that Gemini will receive.
+        # Gemini accepts multiple "contents".
+        # Example:
+        # contents = [
+        #       uploaded_pdf,
+        #       "Extract invoice details."
+        # ]
+        # or
+        # contents = [
+        #       "Hello"
+        # ]
+        # ---------------------------------------------------------
 
+        contents = []
+
+        # Upload the document if one exists.
+        if file_path:
+            uploaded_file = client.files.upload(
+                file=file_path
+            )
+            contents.append(uploaded_file)
+
+        # Add user text if available.
+        if text.strip():
+            contents.append(text)
+        
         # Call the AI with our image and/or text
         response = client.models.generate_content(
             model=settings.llm_model, 
             contents=contents,
             config=config
         )
+        
+        # ---------------------------------------------------------
+        # Delete the temporary uploaded Gemini file.
+        #
+        # This keeps your Gemini file storage clean.
+        # ---------------------------------------------------------
+
+        if file_path:
+            try:
+                client.files.delete(name=uploaded_file.name)
+            except Exception:
+                pass
         
         parsed_data = json.loads(response.text)
         return LLMOutput(**parsed_data)
