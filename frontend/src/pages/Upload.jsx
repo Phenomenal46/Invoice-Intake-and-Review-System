@@ -81,7 +81,7 @@ export default function UploadInvoice() {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700
+            className="w-full bg-blue-600 hover:bg-blue-700 hover:cursor-pointer
                        text-white font-semibold
                        py-3 rounded-xl
                        transition-all duration-200
