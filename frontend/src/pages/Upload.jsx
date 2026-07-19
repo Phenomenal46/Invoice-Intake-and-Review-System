@@ -16,14 +16,14 @@ export default function UploadInvoice() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-2xl bg-white shadow-xl rounded-2xl p-8 border border-slate-200">
+    <div className="h-full bg-slate-100 flex items-center justify-center px-4 py-4">
+      <div className="w-full max-w-2xl max-h-full bg-white shadow-xl rounded-2xl p-6 border border-slate-200 overflow-hidden">
 
-        <h2 className="text-3xl font-bold text-center text-slate-800 mb-8">
+        <h2 className="text-2xl sm:text-3xl font-bold text-center text-slate-800 mb-6">
           Invoice Intake
         </h2>
 
-        <form onSubmit={handleUpload} className="space-y-6">
+        <form onSubmit={handleUpload} className="space-y-5">
 
           {/* File Input */}
           <div>

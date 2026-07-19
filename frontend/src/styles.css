@@ -1,1 +1,15 @@
 @import "tailwindcss";
+
+html,
+body,
+#root {
+	height: 100%;
+}
+
+body {
+	overflow: hidden;
+}
+
+button:hover {
+	cursor: pointer;
+}

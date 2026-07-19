@@ -4,24 +4,36 @@ from google.genai import types
 
 from app.config import settings
 from app.schemas.document import LLMOutput, ExtractedFields
+from app.utils.dates import normalize_date_to_ddmmyyyy
 
 # The Prompt: We explicitly tell the AI to act as a visual data extractor.
 SYSTEM_PROMPT = (
     "You are a professional document analyst. Look at the provided document (pdf/image/text or any valid format). "
     "1. Extract the vendor name, invoice number, date, and total amount into 'extracted_data'. "
-    "2. Provide a short summary, a classification (e.g., 'Invoice'), and list any risks."
+    "2. Return the date only in dd/mm/yyyy format. "
+    "3. Provide a short summary, a classification like Invoice, Resume, Receipt, Letter, Notice, Contract, or Other, and list any risks."
 )
 
 def _fallback_llm_output(text: str) -> LLMOutput:
     snippet = text.strip().replace("\\n", " ")[:200]
     return LLMOutput(
-        extracted_data=ExtractedFields(), # Returns empty fields so app doesn't crash
+        extracted_data=ExtractedFields(), # Safe empty data keeps the app running when Gemini is unavailable.
         summary=snippet or "No content provided.",
         classification="Unknown",
         confidence=0.0,
         key_points=[],
         risks=[],
     )
+
+
+def _normalize_parsed_data(parsed_data: dict) -> dict:
+    extracted_data = parsed_data.get("extracted_data") or {}
+    extracted_data["invoice_date"] = normalize_date_to_ddmmyyyy(extracted_data.get("invoice_date"))
+    parsed_data["extracted_data"] = extracted_data
+
+    classification = str(parsed_data.get("classification") or "Unknown").strip()
+    parsed_data["classification"] = classification or "Unknown"
+    return parsed_data
 
 # NEW: We now accept an optional 'file_path'
 def call_llm(text: str, file_path: str | None = None) -> LLMOutput:
@@ -131,7 +143,7 @@ def call_llm(text: str, file_path: str | None = None) -> LLMOutput:
             except Exception:
                 pass
         
-        parsed_data = json.loads(response.text)
+        parsed_data = _normalize_parsed_data(json.loads(response.text))
         return LLMOutput(**parsed_data)
         
     except Exception as e:

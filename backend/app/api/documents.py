@@ -11,6 +11,7 @@ from app.db.mongo import get_collections
 from app.schemas.audit import AuditEvent
 from app.schemas.document import DocumentResponse
 from app.services import audit, llm, validation, workflow
+from app.utils.dates import normalize_date_to_ddmmyyyy
 from app.utils.serialization import parse_object_id, serialize_document
 
 router = APIRouter()
@@ -161,13 +162,17 @@ def update_document(document_id: str, update_data: DocumentUpdate) -> dict:
     except ValueError:
         clean_amount = 0.0
 
+    clean_invoice_date = normalize_date_to_ddmmyyyy(update_data.invoice_date)
+
     # 3. Tell MongoDB to find the document and update its specific fields
     update_result = documents.update_one(
         {"_id": object_id},
         {"$set": {
             "extracted.vendor": update_data.vendor,
             "extracted.invoice_number": update_data.invoice_number,
-            "extracted.invoice_date": update_data.invoice_date,
+            # Problem: the same date could be saved in different formats after user edits.
+            # Fix: store only dd/mm/yyyy so the dashboard, review screen, and database all match.
+            "extracted.invoice_date": clean_invoice_date,
             "extracted.total_amount": clean_amount,
             "workflow_status": "Approved" # Change status instantly!
         }}
