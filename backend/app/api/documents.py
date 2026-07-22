@@ -1,4 +1,3 @@
-from email.mime import text
 import os
 import shutil
 import uuid
@@ -18,6 +17,8 @@ router = APIRouter()
 
 
 def handle_upload(text: str | None, file: UploadFile | None) -> tuple[str, str, dict]:
+    # Problem: the old upload handler returned only when a file existed, so raw-text submissions had a broken path.
+    # Fix: build the shared upload metadata first, then return once at the end for both file and text-only requests.
     metadata = {"filename": None, "file_url": None}
     raw_text = text or ""
     source = "unknown"
@@ -46,6 +47,7 @@ def handle_upload(text: str | None, file: UploadFile | None) -> tuple[str, str, 
         
         # 4. Save the URL so the frontend can find it later
         metadata["file_url"] = f"http://localhost:8000/uploads/{unique_filename}"
+        metadata["filename"] = file.filename
 
         # ---------------------------------------------------------
         # IMPORTANT
@@ -56,11 +58,11 @@ def handle_upload(text: str | None, file: UploadFile | None) -> tuple[str, str, 
         # ---------------------------------------------------------
 
         raw_text = text or ""
-        
-        if not text and not file:
-            raise HTTPException(status_code=400, detail="Provide text or a file.")
 
-        return raw_text, source, metadata
+    if not text and not file:
+        raise HTTPException(status_code=400, detail="Provide text or a file.")
+
+    return raw_text, source, metadata
 
 
 def _parse_document_id(raw_id: str):
@@ -78,6 +80,11 @@ def create_document(
     raw_text, source, metadata = handle_upload(text, file)
     
     local_path = metadata.get("local_path")
+    now = datetime.now(timezone.utc)
+
+    # Problem: text-only documents had no filename, so the dashboard had nothing human-friendly to show.
+    # Fix: create a stable fallback title from the save date. This keeps the table readable even without a file.
+    metadata["title"] = metadata.get("filename") or f"Raw Text Entry - {now.strftime('%d/%m/%Y')}"
     
     # 1. Ask the AI to look at the file and text
     llm_output = llm.call_llm(raw_text, file_path=local_path)
@@ -90,7 +97,6 @@ def create_document(
     status = workflow.decide_status(validation_result, llm_output)
 
     documents, audit_logs = get_collections()
-    now = datetime.now(timezone.utc)
     doc = {
         "created_at": now,
         "source": source,

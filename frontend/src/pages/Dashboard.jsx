@@ -3,6 +3,11 @@ import { Link } from "react-router-dom";
 import { fetchHistory } from "../api";
 import { formatDateDisplay, formatRupeeAmount } from "../utils/formatters";
 
+function getDisplayTitle(documentRecord) {
+  const fallbackTitle = `Text Entry`;
+  return documentRecord?.metadata?.title || documentRecord?.metadata?.filename || fallbackTitle;
+}
+
 export default function Dashboard() {
   const [history, setHistory] = useState([]);
 
@@ -54,7 +59,7 @@ export default function Dashboard() {
       {/* Recent Documents Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 font-bold text-gray-600 text-sm grid grid-cols-4 gap-3 shrink-0">
-          <div>Vendor</div>
+          <div>Document</div>
           <div>Date</div>
           <div>Amount</div>
           <div>Status</div>
@@ -64,25 +69,28 @@ export default function Dashboard() {
           <div className="p-6 text-center text-gray-500 flex-1 flex items-center justify-center">No invoices processed yet.</div>
         )}
 
-        <div className="overflow-hidden flex-1 min-h-0">
-        {history.map((doc) => (
-          <Link 
-            to={`/review/${doc.id}`} 
-            key={doc.id}
-            className="grid grid-cols-4 gap-3 px-4 py-3 border-b border-gray-100 hover:bg-blue-50 items-center transition text-sm"
-          >
-            <div className="font-bold text-gray-800">{doc.extracted.vendor || "Unknown Vendor"}</div>
-            <div className="text-gray-500">{formatDateDisplay(doc.created_at)}</div>
-            <div className="font-medium text-gray-700">{formatRupeeAmount(doc.extracted.total_amount)}</div>
-            <div>
-              <span className={`px-3 py-1 text-xs font-bold rounded-full ${
-                doc.workflow_status === "Approved" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-              }`}>
-                {doc.workflow_status}
-              </span>
-            </div>
-          </Link>
-        ))}
+        <div className="overflow-auto flex-1 min-h-0">
+          {history.map((doc) => (
+            <Link 
+              to={`/review/${doc.id}`} 
+              key={doc.id}
+              className="grid grid-cols-4 gap-3 px-4 py-3 border-b border-gray-100 hover:bg-blue-50 items-center transition text-sm"
+            >
+              <div className="min-w-0">
+                <div className="font-bold text-gray-800 truncate">{getDisplayTitle(doc)}</div>
+                <div className="text-xs text-gray-500 truncate">{doc.extracted.vendor || "Vendor unknown"}</div>
+              </div>
+              <div className="text-gray-500">{formatDateDisplay(doc.created_at)}</div>
+              <div className="font-medium text-gray-700">{formatRupeeAmount(doc.extracted.total_amount)}</div>
+              <div>
+                <span className={`px-3 py-1 text-xs font-bold rounded-full ${
+                  doc.workflow_status === "Approved" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                }`}>
+                  {doc.workflow_status}
+                </span>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
     </div>

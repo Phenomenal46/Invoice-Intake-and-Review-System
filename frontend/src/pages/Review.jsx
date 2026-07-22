@@ -4,12 +4,29 @@ import { fetchDocument, approveDocument } from "../api";
 import toast from "react-hot-toast";
 import { formatDateDisplay, formatRupeeAmount } from "../utils/formatters";
 
+function getPreviewKind(fileUrl) {
+  if (!fileUrl) return "none";
+
+  try {
+    const pathname = new URL(fileUrl).pathname.toLowerCase();
+    if (pathname.endsWith(".pdf")) return "pdf";
+    if (pathname.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/)) return "image";
+    return "other";
+  } catch {
+    const lowerUrl = String(fileUrl).toLowerCase();
+    if (lowerUrl.endsWith(".pdf")) return "pdf";
+    if (lowerUrl.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/)) return "image";
+    return "other";
+  }
+}
+
 export default function Review() {
   // 1. useParams looks at the URL (e.g., /review/12345) and grabs the '12345'
   const { id } = useParams();
   const navigate = useNavigate();
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isApproving, setIsApproving] = useState(false);
 
   // 2. We use 'formData' to hold the AI's extracted data so the user can edit it
   const [formData, setFormData] = useState({
@@ -18,6 +35,8 @@ export default function Review() {
     invoice_date: "",
     total_amount: ""
   });
+
+  const previewKind = getPreviewKind(doc?.metadata?.file_url);
 
   // 3. useEffect runs automatically when the page loads. It fetches the document.
   useEffect(() => {
@@ -52,6 +71,12 @@ export default function Review() {
 
 
   const handleApprove = async () => {
+    if (isApproving) {
+      return;
+    }
+
+    setIsApproving(true);
+
     try {
       // Problem: browser alerts interrupt the screen and feel abrupt.
       // Fix: use a toast so the message is visible but the user keeps context.
@@ -63,6 +88,8 @@ export default function Review() {
       navigate("/"); // Send the user back to the Dashboard
     } catch (error) {
       // The toast already shows the error, so we stay on the page and let the user fix the data.
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -86,14 +113,35 @@ export default function Review() {
 
         {/* LEFT SIDE: The Document Viewer */}
         <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-200 min-h-0 flex items-center justify-center overflow-hidden">
-          {doc.metadata?.file_url ? (
+          {doc.metadata?.file_url && previewKind === "pdf" && (
+            // Problem: PDFs cannot render inside <img>, so the preview broke for every uploaded PDF.
+            // Fix: render PDFs inside an iframe and keep images on the normal image path.
+            <iframe
+              src={doc.metadata.file_url}
+              title="Uploaded PDF preview"
+              className="w-full h-full min-h-72 rounded-lg border-0"
+            />
+          )}
+
+          {doc.metadata?.file_url && previewKind === "image" && (
             <img
               src={doc.metadata.file_url}
-              alt="Uploaded Invoice"
+              alt={doc.metadata?.title || "Uploaded Invoice"}
               className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
             />
-          ) : (
-            <p className="text-gray-400">No image available (Text only upload)</p>
+          )}
+
+          {doc.metadata?.file_url && previewKind === "other" && (
+            <div className="text-center text-gray-500 space-y-2">
+              <p className="font-semibold">Preview not available for this file type.</p>
+              <a className="text-blue-600 hover:underline" href={doc.metadata.file_url} target="_blank" rel="noreferrer">
+                Open uploaded file
+              </a>
+            </div>
+          )}
+
+          {!doc.metadata?.file_url && (
+            <p className="text-gray-400 text-center">No file preview available for text-only submissions.</p>
           )}
         </div>
 
@@ -101,7 +149,7 @@ export default function Review() {
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-200 flex flex-col min-h-0">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 shrink-0">Extracted Data</h2>
 
-          <form className="space-y-3 flex-1 min-h-0 overflow-hidden">
+          <form className="space-y-3 flex-1 min-h-0 overflow-auto">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Vendor Name</label>
               <input
@@ -150,10 +198,11 @@ export default function Review() {
             <div className="pt-3 mt-3 border-t border-gray-100 flex gap-4 shrink-0">
               <button
                 type="button"
-                className="flex-1 bg-green-600 text-white font-bold py-2.5 rounded-lg hover:bg-green-700 transition"
+                disabled={loading || isApproving}
+                className="flex-1 bg-green-600 text-white font-bold py-2.5 rounded-lg hover:bg-green-700 transition disabled:bg-green-400 disabled:cursor-not-allowed"
                 onClick={handleApprove}
               >
-                Approve & Save
+                {isApproving ? "Saving..." : "Approve & Save"}
               </button>
             </div>
           </form>

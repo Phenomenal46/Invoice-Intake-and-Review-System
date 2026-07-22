@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { submitDocument } from '../api';
 
 export default function UploadInvoice() {
   const [file, setFile] = useState(null);
   const [textInvoice, setTextInvoice] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -11,8 +15,30 @@ export default function UploadInvoice() {
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    const res = await submitDocument({ text: textInvoice, file });
-    console.log(res);
+    if (isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Problem: a fast double-click could send two POST requests and trigger Gemini twice.
+      // Fix: freeze the button immediately, then await one submission promise and route using the returned document id.
+      const response = await toast.promise(submitDocument({ text: textInvoice, file }), {
+        loading: 'Processing...',
+        success: 'Document processed successfully.',
+        error: (error) => error?.message || 'Submission failed.',
+      });
+
+      const documentId = response?.document?.id;
+      if (documentId) {
+        navigate(`/review/${documentId}`);
+      }
+    } catch {
+      // The toast already explains the failure, so we stop here and let the user retry safely.
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -23,7 +49,7 @@ export default function UploadInvoice() {
           Invoice Intake
         </h2>
 
-        <form onSubmit={handleUpload} className="space-y-5">
+        <form onSubmit={handleUpload} className="space-y-5" aria-busy={isSubmitting}>
 
           {/* File Input */}
           <div>
@@ -81,13 +107,14 @@ export default function UploadInvoice() {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 hover:cursor-pointer
+            disabled={isSubmitting}
+            className="w-full bg-blue-600 hover:bg-blue-700 hover:cursor-pointer disabled:cursor-not-allowed disabled:bg-blue-400
                        text-white font-semibold
                        py-3 rounded-xl
                        transition-all duration-200
                        shadow-md hover:shadow-lg"
           >
-            Submit Invoice
+            {isSubmitting ? 'Processing...' : 'Submit Invoice'}
           </button>
 
         </form>
