@@ -37,6 +37,7 @@ export default function Review() {
   });
 
   const previewKind = getPreviewKind(doc?.metadata?.file_url);
+  const hasRawTextPreview = !doc?.metadata?.file_url && typeof doc?.text === "string" && doc.text.trim().length > 0;
 
   // 3. useEffect runs automatically when the page loads. It fetches the document.
   useEffect(() => {
@@ -99,11 +100,10 @@ export default function Review() {
       {/* Header Area */}
       <div className="flex justify-between items-center gap-4 shrink-0">
         <div>
-          <Link to="/" className="text-blue-500 hover:underline mb-2 inline-block">&larr; Back to Dashboard</Link>
+          <Link to="/" className="mb-2 inline-block text-blue-500 hover:underline">&larr; Back to Dashboard</Link>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Review Invoice</h1>
         </div>
-        <span className={`px-4 py-2 rounded-full font-bold ${doc.workflow_status === "Approved" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-          }`}>
+        <span className={`rounded-full px-4 py-2 font-bold ${doc.workflow_status === "Approved" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
           {doc.workflow_status}
         </span>
       </div>
@@ -140,82 +140,97 @@ export default function Review() {
             </div>
           )}
 
-          {!doc.metadata?.file_url && (
-            <p className="text-gray-400 text-center">No file preview available for text-only submissions.</p>
+          {hasRawTextPreview && (
+            <div className="h-full w-full overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Raw text preview</p>
+              <pre className="whitespace-pre-wrap break-words font-sans">{doc.text}</pre>
+            </div>
+          )}
+
+          {!doc.metadata?.file_url && !hasRawTextPreview && (
+            <p className="text-center text-gray-400">No file or raw text preview is available.</p>
           )}
         </div>
 
         {/* RIGHT SIDE: The Data Form */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-200 flex flex-col min-h-0">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 shrink-0">Extracted Data</h2>
+        <div className="bg-white flex min-h-0 flex-col rounded-2xl border border-gray-200 shadow-sm">
+          <div className="shrink-0 border-b border-gray-200 px-4 py-4 sm:px-5">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-800">Extracted Data</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Review the extracted values, then save only after you are confident the document is correct.
+            </p>
+          </div>
 
-          <form className="space-y-3 flex-1 min-h-0 overflow-auto">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Vendor Name</label>
-              <input
-                type="text"
-                name="vendor"
-                value={formData.vendor}
-                onChange={handleChange}
-                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              />
+          <form className="flex min-h-0 flex-1 flex-col">
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-5 space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">Vendor Name</label>
+                <input
+                  type="text"
+                  name="vendor"
+                  value={formData.vendor}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">Invoice Number</label>
+                <input
+                  type="text"
+                  name="invoice_number"
+                  value={formData.invoice_number}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">Date (dd/mm/yyyy)</label>
+                <input
+                  type="text"
+                  name="invoice_date"
+                  value={formData.invoice_date}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">Total Amount (₹)</label>
+                <input
+                  type="number"
+                  name="total_amount"
+                  value={formData.total_amount}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <section className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                <h3 className="text-sm font-bold text-blue-800">AI Insights</h3>
+                <div className="mt-3 space-y-2 text-sm text-blue-700">
+                  <p><strong>Summary:</strong> {doc.llm.summary}</p>
+                  <p><strong>Classification:</strong> {doc.llm.classification || "Unknown"}</p>
+                  <p><strong>Invoice Date:</strong> {formatDateDisplay(formData.invoice_date)}</p>
+                  <p><strong>Total Amount:</strong> {formatRupeeAmount(formData.total_amount)}</p>
+                  <p><strong>Confidence:</strong> {(doc.llm.confidence * 100).toFixed(0)}%</p>
+                </div>
+              </section>
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Invoice Number</label>
-              <input
-                type="text"
-                name="invoice_number"
-                value={formData.invoice_number}
-                onChange={handleChange}
-                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Date (dd/mm/yyyy)</label>
-              <input
-                type="text"
-                name="invoice_date"
-                value={formData.invoice_date}
-                onChange={handleChange}
-                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Total Amount (₹)</label>
-              <input
-                type="number"
-                name="total_amount"
-                value={formData.total_amount}
-                onChange={handleChange}
-                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
-
-            {/* Action Buttons */}
-            <div className="pt-3 mt-3 border-t border-gray-100 flex gap-4 shrink-0">
+            {/* Sticky footer keeps the primary action visible while the form content can still scroll. */}
+            <div className="shrink-0 border-t border-gray-200 bg-white/90 p-4 backdrop-blur sm:p-5">
               <button
                 type="button"
                 disabled={loading || isApproving}
-                className="flex-1 bg-green-600 text-white font-bold py-2.5 rounded-lg hover:bg-green-700 transition disabled:bg-green-400 disabled:cursor-not-allowed"
+                className="w-full rounded-lg bg-green-600 px-4 py-3 font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-400"
                 onClick={handleApprove}
               >
                 {isApproving ? "Saving..." : "Approve & Save"}
               </button>
             </div>
           </form>
-
-          {/* AI Insights Panel */}
-          <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100 shrink-0">
-            <h3 className="text-sm font-bold text-blue-800 mb-2">✨ AI Insights</h3>
-            <p className="text-sm text-blue-700 mb-2"><strong>Summary:</strong> {doc.llm.summary}</p>
-            <p className="text-sm text-blue-700 mb-2"><strong>Classification:</strong> {doc.llm.classification || "Unknown"}</p>
-            <p className="text-sm text-blue-700 mb-2"><strong>Invoice Date:</strong> {formatDateDisplay(formData.invoice_date)}</p>
-            <p className="text-sm text-blue-700"><strong>Total Amount:</strong> {formatRupeeAmount(formData.total_amount)}</p>
-            <p className="text-sm text-blue-700 mt-2"><strong>Confidence:</strong> {(doc.llm.confidence * 100).toFixed(0)}%</p>
-          </div>
         </div>
 
       </div>

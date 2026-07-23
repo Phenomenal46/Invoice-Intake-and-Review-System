@@ -8,7 +8,7 @@ from app.utils.dates import normalize_date_to_ddmmyyyy
 
 # The Prompt: We explicitly tell the AI to act as a visual data extractor.
 SYSTEM_PROMPT = (
-    "You are a professional document analyst. Look at the provided document (pdf/image/text or any valid format). "
+    "You are a professional document analyst. Look at the provided document (pdf/image/text/docx or any valid format). "
     "1. Extract the vendor name, invoice number, date, and total amount into 'extracted_data'. "
     "2. Return the date only in dd/mm/yyyy format. "
     "3. Provide a short summary, a classification like Invoice, Resume, Receipt, Letter, Notice, Contract, or Other, and list any risks."

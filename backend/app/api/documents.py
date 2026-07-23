@@ -1,9 +1,11 @@
 import os
+import math
+import re
 import shutil
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from app.db.mongo import get_collections
@@ -119,11 +121,64 @@ def create_document(
 
 
 @router.get("/documents")
-def list_documents() -> dict:
+def list_documents(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(5, ge=1, le=100),
+    search: str | None = Query(None),
+    sort_by: str = Query("created_at"),
+    sort_direction: str = Query("desc"),
+    status: str | None = Query(None),
+) -> dict:
     documents, _ = get_collections()
-    cursor = documents.find({}, {"text": 0}).sort("created_at", -1).limit(50)
+
+    # Problem: loading every document at once made the table harder to read and impossible to page.
+    # Fix: build a MongoDB filter, count the matches first, then fetch only the current page.
+    filter_query: dict = {}
+
+    if status:
+        filter_query["workflow_status"] = status
+
+    if search:
+        search_text = re.escape(search.strip())
+        if search_text:
+            filter_query["$or"] = [
+                {"metadata.title": {"$regex": search_text, "$options": "i"}},
+                {"metadata.filename": {"$regex": search_text, "$options": "i"}},
+                {"extracted.vendor": {"$regex": search_text, "$options": "i"}},
+            ]
+
+    sort_field_map = {
+        "created_at": "created_at",
+        "vendor": "extracted.vendor",
+        "amount": "extracted.total_amount",
+        "status": "workflow_status",
+        "title": "metadata.title",
+    }
+    sort_field = sort_field_map.get(sort_by, "created_at")
+    sort_order = 1 if sort_direction.lower() == "asc" else -1
+
+    total_items = documents.count_documents(filter_query)
+    total_pages = math.ceil(total_items / page_size) if total_items else 0
+    current_page = min(page, total_pages) if total_pages else 1
+    skip_amount = (current_page - 1) * page_size
+
+    cursor = (
+        documents.find(filter_query, {"text": 0})
+        .sort(sort_field, sort_order)
+        .skip(skip_amount)
+        .limit(page_size)
+    )
+
     items = [serialize_document(doc) for doc in cursor]
-    return {"items": items}
+    return {
+        "items": items,
+        "page": current_page,
+        "page_size": page_size,
+        "total_items": total_items,
+        "total_pages": total_pages,
+        "has_next": current_page < total_pages,
+        "has_prev": current_page > 1 and total_pages > 0,
+    }
 
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)

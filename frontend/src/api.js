@@ -1,5 +1,20 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
+function buildQueryString(params) {
+  const queryParts = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    queryParts.set(key, String(value));
+  });
+
+  const queryString = queryParts.toString();
+  return queryString ? `?${queryString}` : "";
+}
+
 export async function submitDocument({ text, file }) {
   const form = new FormData();
   if (text) form.append("text", text);
@@ -20,8 +35,16 @@ export async function submitDocument({ text, file }) {
   return response.json();
 }
 
-export async function fetchHistory() {
-  const response = await fetch(`${API_URL}/documents`);
+export async function fetchHistory({ page = 1, pageSize = 5, search = "", sortBy = "created_at", sortDirection = "desc", signal } = {}) {
+  const queryString = buildQueryString({
+    page,
+    page_size: pageSize,
+    search,
+    sort_by: sortBy,
+    sort_direction: sortDirection,
+  });
+
+  const response = await fetch(`${API_URL}/documents${queryString}`, { signal });
   if (!response.ok) {
     throw new Error("Failed to load history");
   }

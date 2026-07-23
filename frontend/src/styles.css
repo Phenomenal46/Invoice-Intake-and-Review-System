@@ -10,6 +10,13 @@ body {
 	overflow: hidden;
 }
 
-button:hover {
+/* Problem: a global hover rule was forcing a pointer cursor even on disabled buttons.
+   Fix: only enabled buttons get the pointer cursor, while disabled buttons stay not-allowed. */
+button:not(:disabled):hover {
 	cursor: pointer;
+}
+
+button:disabled,
+button:disabled:hover {
+	cursor: not-allowed;
 }

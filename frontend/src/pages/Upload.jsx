@@ -43,9 +43,9 @@ export default function UploadInvoice() {
 
   return (
     <div className="h-full bg-slate-100 flex items-center justify-center px-4 py-4">
-      <div className="w-full max-w-2xl max-h-full bg-white shadow-xl rounded-2xl p-6 border border-slate-200 overflow-hidden">
+      <div className="w-full max-w-2xl max-h-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
 
-        <h2 className="text-2xl sm:text-3xl font-bold text-center text-slate-800 mb-6">
+        <h2 className="mb-6 text-center text-2xl font-bold text-slate-800 sm:text-3xl">
           Invoice Intake
         </h2>
 
@@ -53,7 +53,7 @@ export default function UploadInvoice() {
 
           {/* File Input */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
               Upload Invoice File
             </label>
 
@@ -71,7 +71,7 @@ export default function UploadInvoice() {
             />
 
             {file && (
-              <p className="mt-3 text-green-600 text-sm font-medium">
+              <p className="mt-3 text-sm font-medium text-green-600">
                 ✓ Selected: {file.name}
               </p>
             )}
@@ -80,13 +80,13 @@ export default function UploadInvoice() {
           {/* Divider */}
           <div className="flex items-center gap-4">
             <div className="h-px flex-1 bg-slate-300"></div>
-            <span className="text-slate-500 text-sm font-medium">OR</span>
+            <span className="text-sm font-medium text-slate-500">OR</span>
             <div className="h-px flex-1 bg-slate-300"></div>
           </div>
 
           {/* Text Input */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
               Paste Invoice Text / Data
             </label>
 
@@ -108,11 +108,7 @@ export default function UploadInvoice() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-blue-600 hover:bg-blue-700 hover:cursor-pointer disabled:cursor-not-allowed disabled:bg-blue-400
-                       text-white font-semibold
-                       py-3 rounded-xl
-                       transition-all duration-200
-                       shadow-md hover:shadow-lg"
+            className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition-all duration-200 shadow-md hover:bg-blue-700 hover:shadow-lg disabled:bg-blue-400 disabled:cursor-not-allowed"
           >
             {isSubmitting ? 'Processing...' : 'Submit Invoice'}
           </button>
