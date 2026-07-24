@@ -8,7 +8,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="h-screen flex flex-col overflow-hidden bg-slate-50 text-slate-900">
+      <div className="h-screen flex flex-col bg-slate-50 text-slate-900">
         {/* A fixed-height shell keeps the whole app inside one viewport, so the pages do not need vertical scrolling. */}
         <nav className="shrink-0 border-b border-slate-200 bg-white/90 backdrop-blur px-4 py-3 shadow-sm">
           <div className="mx-auto flex max-w-7xl items-center gap-4 sm:gap-6">
@@ -20,7 +20,7 @@ export default function App() {
         </nav>
 
         {/* The Routes live inside a single flex area so each page can fit the visible screen height. */}
-        <main className="flex-1 min-h-0 overflow-hidden bg-slate-50 text-slate-700">
+        <main className="flex-1 min-h-0 bg-slate-50 text-slate-700">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/upload" element={<Upload />} />

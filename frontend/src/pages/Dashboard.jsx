@@ -6,9 +6,7 @@ import { formatDateDisplay, formatRupeeAmount } from "../utils/formatters";
 function getDisplayTitle(documentRecord) {
   // Problem: older text-only documents may not have a file name, so the dashboard needs a safe label.
   // Fix: prefer the stored title, then the file name, and finally a text-entry fallback with the save date.
-  const fallbackTitle = documentRecord?.created_at
-    ? `Raw Text Entry - ${formatDateDisplay(documentRecord.created_at)}`
-    : "Raw Text Entry";
+  const fallbackTitle = `Raw Text Entry`
 
   return documentRecord?.metadata?.title || documentRecord?.metadata?.filename || fallbackTitle;
 }

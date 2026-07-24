@@ -143,7 +143,7 @@ export default function Review() {
           {hasRawTextPreview && (
             <div className="h-full w-full overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Raw text preview</p>
-              <pre className="whitespace-pre-wrap break-words font-sans">{doc.text}</pre>
+              <pre className="whitespace-pre-wrap wrap-break-word font-sans">{doc.text}</pre>
             </div>
           )}
 

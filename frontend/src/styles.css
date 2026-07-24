@@ -1,14 +1,5 @@
 @import "tailwindcss";
 
-html,
-body,
-#root {
-	height: 100%;
-}
-
-body {
-	overflow: hidden;
-}
 
 /* Problem: a global hover rule was forcing a pointer cursor even on disabled buttons.
    Fix: only enabled buttons get the pointer cursor, while disabled buttons stay not-allowed. */
