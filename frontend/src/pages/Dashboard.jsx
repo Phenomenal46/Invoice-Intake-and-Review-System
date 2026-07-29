@@ -6,9 +6,14 @@ import { formatDateDisplay, formatRupeeAmount } from "../utils/formatters";
 function getDisplayTitle(documentRecord) {
   // Problem: older text-only documents may not have a file name, so the dashboard needs a safe label.
   // Fix: prefer the stored title, then the file name, and finally a text-entry fallback with the save date.
-  const fallbackTitle = `Raw Text Entry`
+  const fallbackTitle = "Raw Text Entry";
+  const storedTitle = documentRecord?.metadata?.title;
 
-  return documentRecord?.metadata?.title || documentRecord?.metadata?.filename || fallbackTitle;
+  if (typeof storedTitle === "string" && storedTitle.startsWith("Raw Text Entry")) {
+    return fallbackTitle;
+  }
+
+  return storedTitle || documentRecord?.metadata?.filename || fallbackTitle;
 }
 
 export default function Dashboard() {
@@ -78,14 +83,7 @@ export default function Dashboard() {
   const totalPagesLabel = totalPages === 0 ? 0 : page;
 
   return (
-    <div className="h-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col gap-4 min-h-0">
-      <div className="flex justify-between items-start gap-4 shrink-0">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Document workflow</p>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mt-1">Command Center</h1>
-        </div>
-      </div>
-
+    <div className="h-auto max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col gap-4 min-h-0">
       {/* Analytics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-4 sm:p-5 rounded-xl border border-gray-200 shadow-sm">
@@ -118,7 +116,7 @@ export default function Dashboard() {
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
             placeholder="Search by title, filename, or vendor"
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400  focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
 
@@ -131,67 +129,89 @@ export default function Dashboard() {
       </div>
 
       {/* Recent Documents Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 font-bold text-gray-600 text-sm grid grid-cols-4 gap-3 shrink-0">
-          <div>Document</div>
-          <div>Date</div>
-          <div>Amount</div>
-          <div>Status</div>
+      <div className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto">
+          <table className="min-w-full table-fixed border-collapse">
+            <thead className="sticky top-0 z-10 bg-white">
+              <tr className="border-b border-gray-200 text-left text-sm font-medium text-gray-500">
+                <th scope="col" className="px-4 py-4">Document</th>
+                <th scope="col" className="px-4 py-4">Date</th>
+                <th scope="col" className="px-4 py-4">Amount</th>
+                <th scope="col" className="px-4 py-4">Status</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-10 text-center text-gray-500">
+                    Loading documents...
+                  </td>
+                </tr>
+              )}
+
+              {!loading && errorMessage && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-10 text-center text-red-600">
+                    {errorMessage}
+                  </td>
+                </tr>
+              )}
+
+              {!loading && !errorMessage && history.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-10 text-center text-gray-500">
+                    No invoices processed yet.
+                  </td>
+                </tr>
+              )}
+
+              {!loading && !errorMessage && history.length > 0 && history.map((doc) => {
+                const isApproved = doc.workflow_status === "Approved";
+                const statusBadgeClasses = isApproved
+                  ? "bg-green-100 text-green-700"
+                  : "bg-yellow-100 text-yellow-700";
+
+                const documentTitle = getDisplayTitle(doc);
+                const vendorName = doc.extracted.vendor || "Vendor unknown";
+                const formattedDate = formatDateDisplay(doc.created_at);
+                const formattedAmount = formatRupeeAmount(doc.extracted.total_amount);
+
+                return (
+                  <tr key={doc.id} className="h-14 border-b border-gray-100 transition-colors duration-200 hover:bg-gray-100">
+                    <td className="px-4 py-3 align-middle">
+                      <Link to={`/review/${doc.id}`} className="block min-w-0">
+                        <div className="truncate font-semibold text-gray-900" title={documentTitle}>
+                          {documentTitle}
+                        </div>
+                        <div className="truncate text-xs text-gray-500" title={vendorName}>
+                          {vendorName}
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm text-gray-600">
+                      <span className="block truncate" title={formattedDate}>{formattedDate}</span>
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm font-medium text-gray-800">
+                      <span className="block truncate" title={formattedAmount}>{formattedAmount}</span>
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      <span className={`inline-flex min-w-24 items-center justify-center rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses}`}>
+                        {doc.workflow_status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-        
-        {loading && (
-          <div className="p-6 text-center text-gray-500 flex-1 flex items-center justify-center">Loading documents...</div>
-        )}
 
-        {!loading && errorMessage && (
-          <div className="p-6 text-center text-red-600 flex-1 flex items-center justify-center">
-            {errorMessage}
-          </div>
-        )}
-
-        {!loading && !errorMessage && history.length === 0 && (
-          <div className="p-6 text-center text-gray-500 flex-1 flex items-center justify-center">No invoices processed yet.</div>
-        )}
-
-        {!loading && !errorMessage && history.length > 0 && (
-          <div className="flex-1 min-h-0 overflow-auto">
-            {history.map((doc) => {
-              const isApproved = doc.workflow_status === "Approved";
-              const statusBadgeClasses = isApproved
-                ? "bg-green-100 text-green-700"
-                : "bg-yellow-100 text-yellow-700";
-
-              return (
-                <Link
-                  to={`/review/${doc.id}`}
-                  key={doc.id}
-                  className="grid grid-cols-4 gap-3 border-b border-gray-100 px-4 py-3 text-sm transition hover:bg-blue-50"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate font-bold text-gray-800">{getDisplayTitle(doc)}</div>
-                    <div className="truncate text-xs text-gray-500">{doc.extracted.vendor || "Vendor unknown"}</div>
-                  </div>
-                  <div className="text-gray-500">{formatDateDisplay(doc.created_at)}</div>
-                  <div className="font-medium text-gray-700">{formatRupeeAmount(doc.extracted.total_amount)}</div>
-                  <div>
-                    <span className={`px-3 py-1 text-xs font-bold rounded-full ${statusBadgeClasses}`}>
-                      {doc.workflow_status}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Pagination keeps the table readable without an internal scroll bar. */}
-        <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <span>
-              Showing {totalItems === 0 ? 0 : (page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalItems)} of {totalItems}
-            </span>
-            <label className="flex items-center gap-2">
-              <span className="whitespace-nowrap">Rows per page</span>
+        {/* Pagination keeps the table readable without changing the server-side paging behavior. */}
+        <div className="flex w-full items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-4 text-sm text-slate-600">
+          <div className="flex flex-wrap items-center justify-end gap-3 sm:flex-nowrap">
+            <label className="flex items-center gap-2 mr-5 whitespace-nowrap">
+              <span>Rows per page</span>
               <select
                 value={pageSize}
                 onChange={(event) => {
@@ -205,27 +225,50 @@ export default function Dashboard() {
                 <option value={20}>20</option>
               </select>
             </label>
-          </div>
 
-          <div className="flex items-center gap-2">
+            <span className="whitespace-nowrap font-semibold text-slate-700">
+              Page {totalPagesLabel} of {totalPages}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setPage(1)}
+              disabled={!page || page <= 1}
+              aria-label="First page"
+              title="First page"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-700 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              &laquo;
+            </button>
             <button
               type="button"
               onClick={() => setPage((currentPage) => Math.max(currentPage - 1, 1))}
               disabled={!page || page <= 1}
-              className="rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Previous page"
+              title="Previous page"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-700 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Prev
+              &lsaquo;
             </button>
-            <span className="min-w-24 text-center font-semibold">
-              Page {totalPagesLabel} of {totalPages}
-            </span>
             <button
               type="button"
               onClick={() => setPage((currentPage) => Math.min(currentPage + 1, totalPages || 1))}
               disabled={!totalPages || page >= totalPages}
-              className="rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Next page"
+              title="Next page"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-700 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Next
+              &rsaquo;
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage(totalPages || 1)}
+              disabled={!totalPages || page >= totalPages}
+              aria-label="Last page"
+              title="Last page"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-700 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              &raquo;
             </button>
           </div>
         </div>

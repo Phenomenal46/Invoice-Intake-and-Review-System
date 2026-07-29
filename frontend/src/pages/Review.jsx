@@ -96,17 +96,7 @@ export default function Review() {
 
 
   return (
-    <div className="h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col gap-4 min-h-0">
-      {/* Header Area */}
-      <div className="flex justify-between items-center gap-4 shrink-0">
-        <div>
-          <Link to="/" className="mb-2 inline-block text-blue-500 hover:underline">&larr; Back to Dashboard</Link>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Review Invoice</h1>
-        </div>
-        <span className={`rounded-full px-4 py-2 font-bold ${doc.workflow_status === "Approved" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-          {doc.workflow_status}
-        </span>
-      </div>
+    <div className="h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-4 flex flex-col gap-4 min-h-0">
 
       {/* Split Screen Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-0">
@@ -155,9 +145,14 @@ export default function Review() {
         {/* RIGHT SIDE: The Data Form */}
         <div className="bg-white flex min-h-0 flex-col rounded-2xl border border-gray-200 shadow-sm">
           <div className="shrink-0 border-b border-gray-200 px-4 py-4 sm:px-5">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-800">Extracted Data</h2>
+            <div className="flex justify-between">
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-800">Extracted Data</h2>
+              <span className={`rounded-full px-4 py-2 font-bold ${doc.workflow_status === "Approved" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                {doc.workflow_status}
+              </span>
+            </div>
             <p className="mt-1 text-sm text-slate-500">
-              Review the extracted values, then save only after you are confident the document is correct.
+              Review the extracted values, then save only after you are confident the fields are correct.
             </p>
           </div>
 
