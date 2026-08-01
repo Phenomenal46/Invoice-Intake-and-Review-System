@@ -236,7 +236,7 @@ export default function Dashboard() {
               disabled={!page || page <= 1}
               aria-label="First page"
               title="First page"
-              className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-700 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-800 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               &laquo;
             </button>
@@ -246,7 +246,7 @@ export default function Dashboard() {
               disabled={!page || page <= 1}
               aria-label="Previous page"
               title="Previous page"
-              className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-700 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-800 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               &lsaquo;
             </button>
@@ -256,7 +256,7 @@ export default function Dashboard() {
               disabled={!totalPages || page >= totalPages}
               aria-label="Next page"
               title="Next page"
-              className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-700 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-800 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               &rsaquo;
             </button>
@@ -266,7 +266,7 @@ export default function Dashboard() {
               disabled={!totalPages || page >= totalPages}
               aria-label="Last page"
               title="Last page"
-              className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-700 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-2xl font-semibold text-slate-800 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               &raquo;
             </button>

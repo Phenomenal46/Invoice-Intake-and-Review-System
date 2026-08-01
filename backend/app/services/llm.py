@@ -11,7 +11,7 @@ SYSTEM_PROMPT = (
     "You are a professional document analyst. Look at the provided document (pdf/image/text/docx or any valid format). "
     "1. Extract the vendor name, invoice number, date, and total amount into 'extracted_data'. "
     "2. Return the date only in dd/mm/yyyy format. "
-    "3. Provide a short summary, a classification like Invoice, Resume, Receipt, Letter, Notice, Contract, or Other, and list any risks."
+    "3. Provide a short summary, a classification(Invoice, Receipt, etc), and list any risks."
 )
 
 def _fallback_llm_output(text: str) -> LLMOutput:
