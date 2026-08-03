@@ -8,14 +8,22 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
-from app.db.mongo import get_collections
-from app.schemas.audit import AuditEvent
+from app.db.mongo import get_documents_collection
 from app.schemas.document import DocumentResponse
-from app.services import audit, llm, validation, workflow
+from app.services import llm, validation, workflow
 from app.utils.dates import normalize_date_to_ddmmyyyy
 from app.utils.serialization import parse_object_id, serialize_document
 
 router = APIRouter()
+
+
+SEARCH_FIELDS = (
+    "metadata.title",
+    "metadata.filename",
+    "extracted.vendor",
+    "extracted.invoice_number",
+    "workflow_status",
+)
 
 
 def handle_upload(text: str | None, file: UploadFile | None) -> tuple[str, str, dict]:
@@ -74,6 +82,44 @@ def _parse_document_id(raw_id: str):
         raise HTTPException(status_code=400, detail="Invalid document id.") from exc
 
 
+def normalize_search_query(raw_search: str | None) -> str:
+    if not raw_search:
+        return ""
+    return " ".join(raw_search.strip().split())
+
+
+def _search_regex_parts(search_text: str) -> dict[str, str]:
+    escaped_search = re.escape(search_text)
+    return {
+        "starts_with": rf"^{escaped_search}",
+        "whole_word": rf"(^|[^A-Za-z0-9]){escaped_search}([^A-Za-z0-9]|$)",
+        "contains": escaped_search,
+    }
+
+
+def _search_match_expression(field_path: str, regex_pattern: str) -> dict:
+    return {
+        "$regexMatch": {
+            "input": {"$ifNull": [f"${field_path}", ""]},
+            "regex": regex_pattern,
+            "options": "i",
+        }
+    }
+
+
+def _field_relevance_expression(field_path: str, search_patterns: dict[str, str]) -> dict:
+    return {
+        "$switch": {
+            "branches": [
+                {"case": _search_match_expression(field_path, search_patterns["starts_with"]), "then": 0},
+                {"case": _search_match_expression(field_path, search_patterns["whole_word"]), "then": 1},
+                {"case": _search_match_expression(field_path, search_patterns["contains"]), "then": 2},
+            ],
+            "default": 3,
+        }
+    }
+
+
 @router.post("/documents", response_model=DocumentResponse)
 def create_document(
     text: str | None = Form(None),
@@ -98,7 +144,7 @@ def create_document(
     validation_result = validation.validate_fields(extracted)
     status = workflow.decide_status(validation_result, llm_output)
 
-    documents, audit_logs = get_collections()
+    documents = get_documents_collection()
     doc = {
         "created_at": now,
         "source": source,
@@ -113,9 +159,6 @@ def create_document(
     result = documents.insert_one(doc)
     document_id = str(result.inserted_id)
 
-    audit_logs.insert_one(audit.build_audit_event(document_id, "document_created", "Document ingested."))
-    audit_logs.insert_one(audit.build_audit_event(document_id, "workflow_assigned", f"Status: {status.value}"))
-
     doc["_id"] = result.inserted_id
     return {"document": serialize_document(doc)}
 
@@ -129,22 +172,25 @@ def list_documents(
     sort_direction: str = Query("desc"),
     status: str | None = Query(None),
 ) -> dict:
-    documents, _ = get_collections()
+    documents = get_documents_collection()
 
     # Problem: loading every document at once made the table harder to read and impossible to page.
     # Fix: build a MongoDB filter, count the matches first, then fetch only the current page.
     filter_query: dict = {}
+    normalized_search = normalize_search_query(search)
 
     if status:
         filter_query["workflow_status"] = status
 
-    if search:
-        search_text = re.escape(search.strip())
+    if normalized_search:
+        search_text = re.escape(normalized_search)
         if search_text:
             filter_query["$or"] = [
                 {"metadata.title": {"$regex": search_text, "$options": "i"}},
                 {"metadata.filename": {"$regex": search_text, "$options": "i"}},
                 {"extracted.vendor": {"$regex": search_text, "$options": "i"}},
+                {"extracted.invoice_number": {"$regex": search_text, "$options": "i"}},
+                {"workflow_status": {"$regex": search_text, "$options": "i"}},
             ]
 
     sort_field_map = {
@@ -162,12 +208,34 @@ def list_documents(
     current_page = min(page, total_pages) if total_pages else 1
     skip_amount = (current_page - 1) * page_size
 
-    cursor = (
-        documents.find(filter_query, {"text": 0})
-        .sort(sort_field, sort_order)
-        .skip(skip_amount)
-        .limit(page_size)
-    )
+    if normalized_search:
+        search_patterns = _search_regex_parts(normalized_search)
+        cursor = documents.aggregate(
+            [
+                {"$match": filter_query},
+                {
+                    "$addFields": {
+                        "search_rank": {
+                            "$min": [
+                                _field_relevance_expression(field_path, search_patterns)
+                                for field_path in SEARCH_FIELDS
+                            ]
+                        }
+                    }
+                },
+                {"$sort": {"search_rank": 1, "created_at": -1, "_id": -1}},
+                {"$skip": skip_amount},
+                {"$limit": page_size},
+                {"$project": {"text": 0, "search_rank": 0}},
+            ]
+        )
+    else:
+        cursor = (
+            documents.find(filter_query, {"text": 0})
+            .sort(sort_field, sort_order)
+            .skip(skip_amount)
+            .limit(page_size)
+        )
 
     items = [serialize_document(doc) for doc in cursor]
     return {
@@ -183,23 +251,12 @@ def list_documents(
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
 def get_document(document_id: str) -> dict:
-    documents, _ = get_collections()
+    documents = get_documents_collection()
     object_id = _parse_document_id(document_id)
     doc = documents.find_one({"_id": object_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")
     return {"document": serialize_document(doc)}
-
-
-@router.get("/documents/{document_id}/audit")
-def get_audit(document_id: str) -> dict:
-    _, audit_logs = get_collections()
-    cursor = audit_logs.find({"document_id": document_id}).sort("created_at", -1)
-    items = []
-    for entry in cursor:
-        entry["id"] = str(entry.pop("_id"))
-        items.append(AuditEvent(**entry).model_dump())
-    return {"items": items}
 
 
 
@@ -214,7 +271,7 @@ class DocumentUpdate(BaseModel):
 # 2. Create a PATCH route (PATCH is used for updating existing data)
 @router.patch("/documents/{document_id}", response_model=DocumentResponse)
 def update_document(document_id: str, update_data: DocumentUpdate) -> dict:
-    documents, audit_logs = get_collections()
+    documents = get_documents_collection()
     object_id = _parse_document_id(document_id)
     
     # Clean up the total_amount (ensure it is a float if possible)
@@ -241,15 +298,6 @@ def update_document(document_id: str, update_data: DocumentUpdate) -> dict:
 
     if update_result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Document not found.")
-
-    # 4. Add an Audit Log so the company knows WHO changed the data and WHEN
-    audit_logs.insert_one(
-        audit.build_audit_event(
-            document_id,
-            "document_approved",
-            "Document manually reviewed and approved by user."
-        )
-    )
 
     # Return the newly updated document
     updated_doc = documents.find_one({"_id": object_id})

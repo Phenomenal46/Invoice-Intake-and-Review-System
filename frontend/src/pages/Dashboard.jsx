@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchHistory } from "../api";
+import { fetchHistory, normalizeSearchInput } from "../api";
 import { formatDateDisplay, formatRupeeAmount } from "../utils/formatters";
 
 function getDisplayTitle(documentRecord) {
@@ -30,13 +30,19 @@ export default function Dashboard() {
   useEffect(() => {
     // Problem: firing a network request on every keystroke makes the UI noisy and wastes calls.
     // Fix: wait briefly before promoting the search box text into the real server query.
+    const normalizedSearch = normalizeSearchInput(searchDraft);
+
+    if (normalizedSearch === searchQuery) {
+      return;
+    }
+
     const debounceId = window.setTimeout(() => {
       setPage(1);
-      setSearchQuery(searchDraft.trim());
+      setSearchQuery(normalizedSearch);
     }, 300);
 
     return () => window.clearTimeout(debounceId);
-  }, [searchDraft]);
+  }, [searchDraft, searchQuery]);
 
   useEffect(() => {
     const controller = new AbortController();

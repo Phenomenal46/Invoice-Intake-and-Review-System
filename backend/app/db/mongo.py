@@ -2,8 +2,7 @@
 
 This module creates a single shared :class:`MongoClient` instance on
 first use and exposes convenience functions to get the configured
-database and the two collections the app uses: ``documents`` and
-``audit_logs``.
+database and the ``documents`` collection the app uses.
 
 The comments below explain the slightly tricky pieces (global
 variable, lazy initialization, subscription-style access like
@@ -58,12 +57,7 @@ def get_db():
     return get_client()[settings.mongodb_db]
 
 
-def get_collections():
-    """Return the two collections used by the app.
-
-    This returns a tuple: ``(documents_collection, audit_logs_collection)``.
-    Returning both collections makes calling code concise:
-        documents, audit_logs = get_collections()
-    """
+def get_documents_collection():
+    """Return the documents collection used by the app."""
     db = get_db()
-    return db["documents"], db["audit_logs"]
+    return db["documents"]

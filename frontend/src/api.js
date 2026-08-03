@@ -1,5 +1,9 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
+export function normalizeSearchInput(value) {
+  return String(value ?? "").trim().replace(/\s+/g, " ");
+}
+
 function buildQueryString(params) {
   const queryParts = new URLSearchParams();
 
@@ -39,7 +43,7 @@ export async function fetchHistory({ page = 1, pageSize = 5, search = "", sortBy
   const queryString = buildQueryString({
     page,
     page_size: pageSize,
-    search,
+    search: normalizeSearchInput(search),
     sort_by: sortBy,
     sort_direction: sortDirection,
   });
@@ -47,14 +51,6 @@ export async function fetchHistory({ page = 1, pageSize = 5, search = "", sortBy
   const response = await fetch(`${API_URL}/documents${queryString}`, { signal });
   if (!response.ok) {
     throw new Error("Failed to load history");
-  }
-  return response.json();
-}
-
-export async function fetchAudit(documentId) {
-  const response = await fetch(`${API_URL}/documents/${documentId}/audit`);
-  if (!response.ok) {
-    throw new Error("Failed to load audit log");
   }
   return response.json();
 }
