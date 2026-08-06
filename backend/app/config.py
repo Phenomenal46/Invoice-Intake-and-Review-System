@@ -1,4 +1,5 @@
 import os
+from typing import List
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -16,7 +17,7 @@ class Settings(BaseSettings):
     # The Gemini model we use. gemini-2.5-flash is faster and better for beginners.
     llm_model: str = "gemini-2.5-flash"
     llm_timeout_seconds: int = 20
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: List[str] = ["https://invoice-intake-and-review-system.vercel.app/", "http://localhost:5173"]
 
     model_config = SettingsConfigDict(extra="ignore")
 
