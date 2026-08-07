@@ -41,6 +41,8 @@ def call_llm(text: str, file_path: str | None = None) -> LLMOutput:
         print("Warning: No Gemini API key provided. Using fallback.")
         return _fallback_llm_output(text)
 
+    client = None
+    uploaded_file = None
     try:
         client = genai.Client(api_key=settings.gemini_api_key)
         
@@ -115,9 +117,7 @@ def call_llm(text: str, file_path: str | None = None) -> LLMOutput:
 
         # Upload the document if one exists.
         if file_path:
-            uploaded_file = client.files.upload(
-                file=file_path
-            )
+            uploaded_file = client.files.upload(file=file_path)
             contents.append(uploaded_file)
 
         # Add user text if available.
@@ -131,21 +131,16 @@ def call_llm(text: str, file_path: str | None = None) -> LLMOutput:
             config=config
         )
         
-        # ---------------------------------------------------------
-        # Delete the temporary uploaded Gemini file.
-        #
-        # This keeps your Gemini file storage clean.
-        # ---------------------------------------------------------
-
-        if file_path:
-            try:
-                client.files.delete(name=uploaded_file.name)
-            except Exception:
-                pass
-        
         parsed_data = _normalize_parsed_data(json.loads(response.text))
         return LLMOutput(**parsed_data)
         
     except Exception as e:
         print(f"Error calling Gemini API: {e}")
         return _fallback_llm_output(text)
+    finally:
+        # The temporary Gemini upload must be deleted even if the request fails, so repeated uploads do not leak storage.
+        if client is not None and uploaded_file is not None:
+            try:
+                client.files.delete(name=uploaded_file.name)
+            except Exception:
+                pass

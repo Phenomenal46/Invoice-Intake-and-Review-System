@@ -1,4 +1,17 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+// The app now uses an explicit production API URL and only falls back to localhost during local development.
+const API_URL = (() => {
+  const configuredUrl = import.meta.env.VITE_API_URL?.trim();
+
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/$/, "");
+  }
+
+  if (import.meta.env.DEV) {
+    return "http://localhost:8000/api";
+  }
+
+  throw new Error("VITE_API_URL is required in production.");
+})();
 
 export function normalizeSearchInput(value) {
   return String(value ?? "").trim().replace(/\s+/g, " ");

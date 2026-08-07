@@ -1,15 +1,13 @@
-import os
 import math
 import re
-import shutil
-import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel
 
 from app.db.mongo import get_documents_collection
 from app.schemas.document import DocumentResponse
+from app.services.storage import StoredUpload, store_upload
 from app.services import llm, validation, workflow
 from app.utils.dates import normalize_date_to_ddmmyyyy
 from app.utils.serialization import parse_object_id, serialize_document
@@ -26,53 +24,28 @@ SEARCH_FIELDS = (
 )
 
 
-def handle_upload(text: str | None, file: UploadFile | None) -> tuple[str, str, dict]:
-    # Problem: the old upload handler returned only when a file existed, so raw-text submissions had a broken path.
-    # Fix: build the shared upload metadata first, then return once at the end for both file and text-only requests.
+def handle_upload(text: str | None, file: UploadFile | None, request: Request) -> tuple[str, str, dict, StoredUpload | None]:
+    # The storage helper now handles both local files and Cloudinary, so this route only builds the shared metadata.
     metadata = {"filename": None, "file_url": None}
     raw_text = text or ""
     source = "unknown"
+    stored_upload: StoredUpload | None = None
 
     if text:
         source = "text"
 
     if file:
         source = "file"
-        # Original filename
-        metadata["filename"] = file.filename
-        # MIME type
-        metadata["mime_type"] = file.content_type
-        
-        # 1. Extract the file extension (e.g., '.pdf' or '.png')
-        file_extension = os.path.splitext(file.filename)[1]
-        
-        # 2. Create a unique file name using UUID
-        unique_filename = f"{uuid.uuid4()}{file_extension}"
-        file_path = os.path.join("uploads", unique_filename)
-        metadata["local_path"] = file_path
-        
-        # 3. Save the actual file to our "uploads" folder
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        # 4. Save the URL so the frontend can find it later
-        metadata["file_url"] = f"http://localhost:8000/uploads/{unique_filename}"
-        metadata["filename"] = file.filename
-
-        # ---------------------------------------------------------
-        # IMPORTANT
-        #
-        # Do NOT try to manually convert PDFs/images/docx into text.
-        # Gemini understands these files directly.
-        # We only keep raw text if the user actually typed something.
-        # ---------------------------------------------------------
-
+        stored_upload = store_upload(file, str(request.base_url))
+        metadata["filename"] = stored_upload.filename or file.filename
+        metadata["mime_type"] = stored_upload.mime_type
+        metadata["file_url"] = stored_upload.file_url
         raw_text = text or ""
 
     if not text and not file:
         raise HTTPException(status_code=400, detail="Provide text or a file.")
 
-    return raw_text, source, metadata
+    return raw_text, source, metadata, stored_upload
 
 
 def _parse_document_id(raw_id: str):
@@ -122,45 +95,45 @@ def _field_relevance_expression(field_path: str, search_patterns: dict[str, str]
 
 @router.post("/documents", response_model=DocumentResponse)
 def create_document(
+    request: Request,
     text: str | None = Form(None),
     file: UploadFile | None = File(None),
 ) -> dict:
-    raw_text, source, metadata = handle_upload(text, file)
-    
-    local_path = metadata.get("local_path")
+    raw_text, source, metadata, stored_upload = handle_upload(text, file, request)
+    local_path = stored_upload.local_path if stored_upload else None
     now = datetime.now(timezone.utc)
 
     # Problem: text-only documents had no filename, so the dashboard had nothing human-friendly to show.
     # Fix: create a stable fallback title from the save date. This keeps the table readable even without a file.
     metadata["title"] = metadata.get("filename") or f"Raw Text Entry - {now.strftime('%d/%m/%Y')}"
     
-    # 1. Ask the AI to look at the file and text
-    llm_output = llm.call_llm(raw_text, file_path=local_path)
-    
-    # 2. Grab the extracted data directly from the AI's brain!
-    extracted = llm_output.extracted_data 
-    
-    # 3. Validate it using our existing rules
-    validation_result = validation.validate_fields(extracted)
-    status = workflow.decide_status(validation_result, llm_output)
+    try:
+        # The Gemini call needs the temporary local file path, but the frontend only needs the public URL.
+        llm_output = llm.call_llm(raw_text, file_path=local_path)
 
-    documents = get_documents_collection()
-    doc = {
-        "created_at": now,
-        "source": source,
-        "text": raw_text,
-        "extracted": extracted.model_dump(),
-        "validation": validation_result.model_dump(),
-        "llm": llm_output.model_dump(),
-        "workflow_status": status.value,
-        "metadata": metadata,
-    }
+        extracted = llm_output.extracted_data
+        validation_result = validation.validate_fields(extracted)
+        status = workflow.decide_status(validation_result, llm_output)
 
-    result = documents.insert_one(doc)
-    document_id = str(result.inserted_id)
+        documents = get_documents_collection()
+        doc = {
+            "created_at": now,
+            "source": source,
+            "text": raw_text,
+            "extracted": extracted.model_dump(),
+            "validation": validation_result.model_dump(),
+            "llm": llm_output.model_dump(),
+            "workflow_status": status.value,
+            "metadata": metadata,
+        }
 
-    doc["_id"] = result.inserted_id
-    return {"document": serialize_document(doc)}
+        result = documents.insert_one(doc)
+
+        doc["_id"] = result.inserted_id
+        return {"document": serialize_document(doc)}
+    finally:
+        if stored_upload and stored_upload.cleanup_path:
+            stored_upload.cleanup_path.unlink(missing_ok=True)
 
 
 @router.get("/documents")

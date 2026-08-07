@@ -1,4 +1,5 @@
-import os
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 # IMPORT StaticFiles: This acts like a mini web-server just for files
@@ -9,16 +10,16 @@ from app.config import settings
 
 app = FastAPI(title=settings.app_name)
 
-# Ensure the uploads directory exists just in case we forgot to make it
-os.makedirs("uploads", exist_ok=True)
+# The upload folder must be created from an absolute path so Windows, Linux, and Render all use the same location.
+upload_dir = Path(settings.upload_dir)
+upload_dir.mkdir(parents=True, exist_ok=True)
 
 # MOUNT the folder: This tells the server, "If a URL starts with /uploads, look in the uploads folder!"
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
 
-origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
 app.add_middleware(
 	CORSMiddleware,
-	allow_origins=origins,
+	allow_origins=settings.parsed_cors_origins,
 	allow_credentials=True,
 	allow_methods=["*"],
 	allow_headers=["*"],
