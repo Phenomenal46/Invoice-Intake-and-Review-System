@@ -18,7 +18,8 @@ class Settings(BaseSettings):
     # The Gemini model we use. gemini-2.5-flash is faster and better for beginners.
     llm_model: str = "gemini-2.5-flash"
     llm_timeout_seconds: int = 20
-    cors_origins: str = "http://localhost:5173"
+    # The default allowlist covers local development and the current production frontend.
+    cors_origins: str = "http://localhost:5173,https://invoice-intake-and-review-system.vercel.app"
     storage_mode: str = "local"
     upload_dir: str = str(Path(__file__).resolve().parent.parent / "uploads")
     cloudinary_cloud_name: str | None = None
