@@ -36,6 +36,14 @@ def _normalize_parsed_data(parsed_data: dict) -> dict:
     return parsed_data
 
 # NEW: We now accept an optional 'file_path'
+def _upload_file_to_gemini(client, file_path: str):
+    # Keep the production upload compatible with the exact SDK version used by this project.
+    try:
+        return client.files.upload(file=file_path)
+    except TypeError:
+        return client.files.upload(file_path)
+
+
 def call_llm(text: str, file_path: str | None = None) -> LLMOutput:
     if not settings.gemini_api_key:
         print("Warning: No Gemini API key provided. Using fallback.")
@@ -117,11 +125,7 @@ def call_llm(text: str, file_path: str | None = None) -> LLMOutput:
 
         # Upload the document if one exists.
         if file_path:
-            try:
-                uploaded_file = client.files.upload(file=file_path)
-            except TypeError:
-                # Some Google GenAI versions accept a positional file argument instead of the keyword form.
-                uploaded_file = client.files.upload(file_path)
+            uploaded_file = _upload_file_to_gemini(client, file_path)
             contents.append(uploaded_file)
 
         # Add user text if available.
