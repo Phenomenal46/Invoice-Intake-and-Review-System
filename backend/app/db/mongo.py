@@ -23,8 +23,8 @@ def get_client() -> MongoClient:
     """Return a shared MongoClient instance.
 
     - Uses a global variable so the same client is reused across calls.
-    - The first call constructs the client using the URI from
-      ``settings.mongodb_uri`` (this is called "lazy initialization").
+        - The first call constructs the client using the resolved URI from
+            ``settings.resolved_mongodb_uri`` (this is called "lazy initialization").
     - Reusing the client is important: MongoClient manages a pool of
       network connections and is intended to be created once and used
       throughout the app's lifetime.
@@ -38,7 +38,7 @@ def get_client() -> MongoClient:
         # Create the client only once. If the URI is invalid or the
         # server is unreachable, creating or using the client later
         # may raise exceptions — higher-level code should handle that.
-        _client = MongoClient(settings.mongodb_uri)
+        _client = MongoClient(settings.resolved_mongodb_uri)
     return _client
 
 

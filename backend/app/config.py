@@ -36,6 +36,18 @@ class Settings(BaseSettings):
             raise ValueError("CORS_ORIGINS must contain at least one origin.")
         return origins
 
+    @property
+    def is_local_mode(self) -> bool:
+        # Local mode keeps the app on localhost services so development never depends on production resources.
+        return self.storage_mode.strip().lower() == "local"
+
+    @property
+    def resolved_mongodb_uri(self) -> str:
+        # Local runs always use localhost MongoDB; production uses the URI provided in the environment.
+        if self.is_local_mode:
+            return "mongodb://localhost:27017"
+        return self.mongodb_uri
+
     # The upload mode must be explicit so production can use Cloudinary without relying on the Render disk.
     @property
     def use_cloudinary_storage(self) -> bool:

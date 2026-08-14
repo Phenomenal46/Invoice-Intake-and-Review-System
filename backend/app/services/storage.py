@@ -1,17 +1,27 @@
 from __future__ import annotations
 
-import hashlib
+import os
 import shutil
 import tempfile
-import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-import httpx
+import cloudinary
+import cloudinary.uploader
+from cloudinary.utils import cloudinary_url
 from fastapi import HTTPException, UploadFile
 
 from app.config import settings
+
+
+# Cloudinary is configured from environment variables so production can swap in real credentials safely.
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True,
+)
 
 
 # This helper keeps the upload flow in one place so development can use disk and production can use Cloudinary.
@@ -44,41 +54,36 @@ def _save_temp_upload(upload_file: UploadFile) -> Path:
         return Path(temp_file.name)
 
 
-def _cloudinary_signature(timestamp: str) -> str:
-    if not settings.cloudinary_api_secret:
-        raise HTTPException(status_code=500, detail="Cloudinary is missing its API secret.")
+def _build_cloudinary_public_id(filename: str | None) -> str:
+    suffix = Path(filename or "").suffix
+    unique_name = uuid.uuid4().hex
+    return f"document-workflow/{unique_name}{suffix}"
 
-    signature_source = f"timestamp={timestamp}{settings.cloudinary_api_secret}"
-    return hashlib.sha1(signature_source.encode("utf-8")).hexdigest()
+
+def _cloudinary_delivery_url(public_id: str) -> str:
+    url, _ = cloudinary_url(public_id, fetch_format="auto", quality="auto", secure=True)
+    return url
 
 
 def _upload_to_cloudinary(upload_file: UploadFile, local_path: Path) -> str:
-    if not settings.cloudinary_cloud_name or not settings.cloudinary_api_key:
+    if not settings.cloudinary_cloud_name or not settings.cloudinary_api_key or not settings.cloudinary_api_secret:
         raise HTTPException(status_code=500, detail="Cloudinary is missing its credentials.")
 
-    timestamp = str(int(time.time()))
-    payload = {
-        "timestamp": timestamp,
-        "api_key": settings.cloudinary_api_key,
-        "signature": _cloudinary_signature(timestamp),
-    }
-
-    upload_url = f"https://api.cloudinary.com/v1_1/{settings.cloudinary_cloud_name}/auto/upload"
-    with local_path.open("rb") as file_handle:
-        response = httpx.post(
-            upload_url,
-            data=payload,
-            files={"file": (upload_file.filename or local_path.name, file_handle, upload_file.content_type or "application/octet-stream")},
-            timeout=60.0,
-        )
+    public_id = _build_cloudinary_public_id(upload_file.filename)
 
     try:
-        response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
+        upload_result = cloudinary.uploader.upload(
+            str(local_path),
+            public_id=public_id,
+            resource_type="auto",
+        )
+    except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail="Cloudinary upload failed.") from exc
 
-    body = response.json()
-    secure_url = body.get("secure_url")
+    secure_url = upload_result.get("secure_url")
+    if not secure_url:
+        # Keep a delivery URL fallback in case the SDK response shape changes.
+        secure_url = _cloudinary_delivery_url(public_id)
     if not secure_url:
         raise HTTPException(status_code=502, detail="Cloudinary did not return a file URL.")
 
@@ -87,6 +92,7 @@ def _upload_to_cloudinary(upload_file: UploadFile, local_path: Path) -> str:
 
 def store_upload(upload_file: UploadFile, request_base_url: str) -> StoredUpload:
     if settings.use_cloudinary_storage:
+        # Cloudinary needs a real file path here because Gemini also reads the same temporary file.
         temp_path = _save_temp_upload(upload_file)
         try:
             file_url = _upload_to_cloudinary(upload_file, temp_path)
@@ -109,6 +115,7 @@ def store_upload(upload_file: UploadFile, request_base_url: str) -> StoredUpload
     local_path = upload_dir / filename
     _copy_upload(upload_file, local_path)
 
+    # Local mode keeps the file on disk and serves it through FastAPI's static mount.
     file_url = f"{request_base_url.rstrip('/')}/uploads/{filename}"
     return StoredUpload(
         file_url=file_url,
