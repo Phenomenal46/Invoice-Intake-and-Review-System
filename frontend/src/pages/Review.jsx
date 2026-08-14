@@ -104,13 +104,14 @@ export default function Review() {
         {/* LEFT SIDE: The Document Viewer */}
         <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-200 min-h-0 flex items-center justify-center overflow-hidden">
           {doc.metadata?.file_url && previewKind === "pdf" && (
-            // Problem: PDFs cannot render inside <img>, so the preview broke for every uploaded PDF.
-            // Fix: render PDFs inside an iframe and keep images on the normal image path.
-            <iframe
-              src={doc.metadata.file_url}
-              title="Uploaded PDF preview"
-              className="w-full h-full min-h-72 rounded-lg border-0"
-            />
+            <div className="w-full h-[72vh] min-h-105">
+              <iframe
+                src={`${doc.metadata.file_url}#toolbar=0&navpanes=0&scrollbar=0`}
+                title="Uploaded PDF preview"
+                className="w-full h-full rounded-lg border-0"
+                allowFullScreen
+              />
+            </div>
           )}
 
           {doc.metadata?.file_url && previewKind === "image" && (

@@ -117,7 +117,11 @@ def call_llm(text: str, file_path: str | None = None) -> LLMOutput:
 
         # Upload the document if one exists.
         if file_path:
-            uploaded_file = client.files.upload(file=file_path)
+            try:
+                uploaded_file = client.files.upload(file=file_path)
+            except TypeError:
+                # Some Google GenAI versions accept a positional file argument instead of the keyword form.
+                uploaded_file = client.files.upload(file_path)
             contents.append(uploaded_file)
 
         # Add user text if available.
