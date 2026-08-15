@@ -9,7 +9,6 @@ from pathlib import Path
 
 import cloudinary
 import cloudinary.uploader
-from cloudinary.utils import cloudinary_url
 from fastapi import HTTPException, UploadFile
 
 from app.config import settings
@@ -55,14 +54,9 @@ def _save_temp_upload(upload_file: UploadFile) -> Path:
 
 
 def _build_cloudinary_public_id(filename: str | None) -> str:
-    suffix = Path(filename or "").suffix
-    unique_name = uuid.uuid4().hex
-    return f"document-workflow/{unique_name}{suffix}"
-
-
-def _cloudinary_delivery_url(public_id: str) -> str:
-    url, _ = cloudinary_url(public_id, fetch_format="auto", quality="auto", secure=True)
-    return url
+    # Keep Cloudinary public IDs clean so PDF URLs do not become malformed like .pdf.pdf.
+    stem = Path(filename or "").stem or uuid.uuid4().hex
+    return f"document-workflow/{uuid.uuid4().hex}-{stem}"
 
 
 def _upload_to_cloudinary(upload_file: UploadFile, local_path: Path) -> str:
@@ -70,20 +64,20 @@ def _upload_to_cloudinary(upload_file: UploadFile, local_path: Path) -> str:
         raise HTTPException(status_code=500, detail="Cloudinary is missing its credentials.")
 
     public_id = _build_cloudinary_public_id(upload_file.filename)
+    suffix = (Path(upload_file.filename or "").suffix or "").lower()
+    resource_type = "raw" if suffix == ".pdf" else "auto"
 
     try:
         upload_result = cloudinary.uploader.upload(
             str(local_path),
             public_id=public_id,
-            resource_type="auto",
+            resource_type=resource_type,
+            type="upload",
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail="Cloudinary upload failed.") from exc
 
-    secure_url = upload_result.get("secure_url")
-    if not secure_url:
-        # Keep a delivery URL fallback in case the SDK response shape changes.
-        secure_url = _cloudinary_delivery_url(public_id)
+    secure_url = upload_result.get("secure_url") or upload_result.get("url")
     if not secure_url:
         raise HTTPException(status_code=502, detail="Cloudinary did not return a file URL.")
 

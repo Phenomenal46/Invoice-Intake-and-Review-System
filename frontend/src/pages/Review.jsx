@@ -105,18 +105,13 @@ export default function Review() {
         <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-200 min-h-0 flex items-center justify-center overflow-hidden">
           {doc.metadata?.file_url && previewKind === "pdf" && (
             <div className="w-full h-[72vh] min-h-105 rounded-lg overflow-hidden border border-slate-200 bg-white">
-              <object
-                data={doc.metadata.file_url}
-                type="application/pdf"
-                className="w-full h-full"
-              >
-                <iframe
-                  src={`${doc.metadata.file_url}#toolbar=0&navpanes=0&scrollbar=0`}
-                  title="Uploaded PDF preview"
-                  className="w-full h-full border-0"
-                  allowFullScreen
-                />
-              </object>
+              {/* Avoid the browser's native PDF extension viewer because it triggers the chrome-extension 401 path. */}
+              <iframe
+                src={`https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(doc.metadata.file_url)}`}
+                title="PDF preview"
+                className="w-full h-full border-0"
+                allowFullScreen
+              />
             </div>
           )}
 
