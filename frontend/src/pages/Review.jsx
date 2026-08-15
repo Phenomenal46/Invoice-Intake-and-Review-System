@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { fetchDocument, approveDocument } from "../api";
 import toast from "react-hot-toast";
 import { formatDateDisplay, formatRupeeAmount } from "../utils/formatters";
+import PdfViewer from "../components/PdfViewer";
 
 function getPreviewKind(fileUrl) {
   if (!fileUrl) return "none";
@@ -104,14 +105,8 @@ export default function Review() {
         {/* LEFT SIDE: The Document Viewer */}
         <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-200 min-h-0 flex items-center justify-center overflow-hidden">
           {doc.metadata?.file_url && previewKind === "pdf" && (
-            <div className="w-full h-[72vh] min-h-105 rounded-lg overflow-hidden border border-slate-200 bg-white">
-              {/* Avoid the browser's native PDF extension viewer because it triggers the chrome-extension 401 path. */}
-              <iframe
-                src={`https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(doc.metadata.file_url)}`}
-                title="PDF preview"
-                className="w-full h-full border-0"
-                allowFullScreen
-              />
+            <div className="w-full h-[84vh] min-h-105 rounded-lg overflow-hidden border border-slate-200 bg-white">
+              <PdfViewer fileUrl={doc.metadata.file_url} />
             </div>
           )}
 
