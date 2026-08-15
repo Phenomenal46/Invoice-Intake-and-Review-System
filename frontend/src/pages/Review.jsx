@@ -207,6 +207,18 @@ export default function Review() {
                   <p><strong>Invoice Date:</strong> {formatDateDisplay(formData.invoice_date)}</p>
                   <p><strong>Total Amount:</strong> {formatRupeeAmount(formData.total_amount)}</p>
                   <p><strong>Confidence:</strong> {(doc.llm.confidence * 100).toFixed(0)}%</p>
+                  <div>
+                    <strong>Risks:</strong>
+                    {Array.isArray(doc.llm.risks) && doc.llm.risks.length > 0 ? (
+                      <ul className="mt-1 list-disc space-y-1 pl-5">
+                        {doc.llm.risks.map((risk, index) => (
+                          <li key={`${risk}-${index}`}>{risk}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className="ml-1">None</span>
+                    )}
+                  </div>
                 </div>
               </section>
             </div>

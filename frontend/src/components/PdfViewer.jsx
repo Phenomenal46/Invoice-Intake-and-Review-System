@@ -6,6 +6,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export default function PdfViewer({ fileUrl }) {
   const containerRef = useRef(null);
+  const renderTaskRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -25,7 +26,6 @@ export default function PdfViewer({ fileUrl }) {
       setLoading(true);
       setError("");
 
-      // Clear any previous pages.
       if (containerRef.current) {
         containerRef.current.innerHTML = "";
       }
@@ -40,6 +40,8 @@ export default function PdfViewer({ fileUrl }) {
         if (cancelled) return;
 
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+          if (cancelled) return;
+
           const page = await pdf.getPage(pageNumber);
 
           if (cancelled) return;
@@ -61,10 +63,20 @@ export default function PdfViewer({ fileUrl }) {
 
           containerRef.current.appendChild(canvas);
 
-          await page.render({
+          const renderTask = page.render({
             canvasContext: context,
             viewport,
-          }).promise;
+          });
+
+          renderTaskRef.current = renderTask;
+
+          try {
+            await renderTask.promise;
+          } finally {
+            if (renderTaskRef.current === renderTask) {
+              renderTaskRef.current = null;
+            }
+          }
         }
 
         if (!cancelled) {
@@ -72,6 +84,11 @@ export default function PdfViewer({ fileUrl }) {
         }
       } catch (err) {
         if (cancelled) return;
+
+        // PDF.js can reject when a render is cancelled during navigation.
+        if (err?.name === "RenderingCancelledException") {
+          return;
+        }
 
         console.error("PDF rendering failed:", err);
         setError("Unable to preview this PDF.");
@@ -84,32 +101,37 @@ export default function PdfViewer({ fileUrl }) {
     return () => {
       cancelled = true;
 
-      if (loadingTask) {
-        loadingTask.destroy();
+      // Cancel the currently active page render first.
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch (err) {
+          console.debug("PDF render cancellation:", err);
+        }
+
+        renderTaskRef.current = null;
       }
 
-      if (pdf) {
-        pdf.destroy();
+      // Destroy the loading task safely.
+      if (loadingTask) {
+        loadingTask.destroy().catch(() => {});
       }
     };
   }, [fileUrl]);
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      {/* PDF pages */}
       <div
         ref={containerRef}
         className="h-full w-full overflow-auto bg-slate-100 p-4"
       />
 
-      {/* Loading overlay */}
       {loading && !error && (
         <div className="absolute inset-0 flex items-center justify-center bg-white">
           <span className="text-gray-500">Loading PDF...</span>
         </div>
       )}
 
-      {/* Error overlay */}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-white">
           <span className="text-red-500">{error}</span>
