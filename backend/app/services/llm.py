@@ -37,11 +37,7 @@ def _normalize_parsed_data(parsed_data: dict) -> dict:
 
 # NEW: We now accept an optional 'file_path'
 def _upload_file_to_gemini(client, file_path: str):
-    # Keep the production upload compatible with the exact SDK version used by this project.
-    try:
-        return client.files.upload(file=file_path)
-    except TypeError:
-        return client.files.upload(file_path)
+    return client.files.upload(file=file_path)
 
 
 def call_llm(text: str, file_path: str | None = None) -> LLMOutput:
